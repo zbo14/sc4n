@@ -1,0 +1,202 @@
+#!/bin/bash
+
+cd "$(dirname "$0")"
+
+log () {
+  [ -z "$quiet" ] && echo "$1"
+}
+
+usage () {
+  cat banner
+  echo "USAGE: ./sc4n [OPTIONS] <domain/@file>"
+  echo ""
+  echo "OPTIONS:"
+  echo "  -h  log usage information and exit"
+  echo "  -n  number of scanner processes to spawn (default: 20)"
+  echo "  -o  path to output directory"
+  echo "  -p  port list for nmap scans (default: ./list/ports.txt)"
+  echo "  -q  don't print banner or info"
+  echo "  -w  word list for web path discovery (default: ./list/paths.txt)"
+  exit
+}
+
+scanner () {
+  id="$1"
+
+  if [ "$1" -lt 10 ]; then
+    id=0"$id"
+  fi
+
+  while true; do
+    while true; do
+      mkdir "$lock" 2> /dev/null && break
+      sleep 1."$RANDOM"
+    done
+
+    domain="$(head -1 "$input")"
+    sed -i '1d' "$input"
+
+    rm -rf "$lock"
+
+    if [ "$domain" == "done" ]; then
+      log "[p#$id] Stopping"
+      exit
+    elif ! [[ "$domain" =~ [0-9A-Za-z]+ ]]; then
+      sleep 1."$RANDOM"
+      continue
+    fi
+
+    ips="$(dig +short -t A "$domain")"
+
+    [[ "$ips" =~ [0-9]+ ]] || continue
+
+    log "[p#$id] Resolved \"$domain\""
+
+    subdir="$output/$domain"
+    mkdir -p "$subdir"
+
+    echo "$ips" > "$subdir"/ips.txt
+
+    log "[p#$id] Scanning ports for \"$domain\""
+
+    nmap="$(sudo nmap \
+      -n \
+      -p "$portlist" \
+      -Pn \
+      --script http-vhosts \
+      --script-args http-vhosts.domain="$domain" \
+      -sS \
+      -sV \
+      -iL "$subdir"/ips.txt)"
+
+    echo "$nmap" > "$subdir"/nmap.txt
+
+    if [[ "$nmap" =~ 443/tcp[[:space:]]*open ]]; then
+      url=https://"$domain"
+    elif [[ "$nmap" =~ 80/tcp[[:space:]]*open ]]; then
+      url=http://"$domain"
+    elif [[ "$nmap" =~ 8080/tcp[[:space:]]*open ]]; then
+      url=http://"$domain":8080
+    fi
+
+    [ -z "$url" ] && continue
+
+    log "[p#$id] Scanning paths for \"$url\""
+
+    python3 dirsearch/dirsearch.py \
+      -Eu "$url" \
+      --plain-text-report="$subdir"/paths.txt \
+      -t 20 \
+      -w "$wordlist" \
+      > /dev/null
+  done
+}
+
+while getopts ":hn:o:p:qw:" opt; do
+  case ${opt} in
+    h)
+      usage
+      ;;
+
+    n)
+      nprocs="$OPTARG"
+
+      if ! [[ "$nprocs" =~ ^[0-9]+$ ]]; then
+        echo "Expected -p to be an integer"
+        exit 1
+      elif [ "$nprocs" -lt 1 ]; then
+        echo "Expected -p to be greater than/equal to 1"
+        exit 1
+      fi
+      ;;
+
+    o)
+      output="$(realpath "$OPTARG")"
+
+      if [ ! -d "$output" ]; then
+        echo "Couldn't find output directory \"$output\""
+        exit 1
+      fi
+      ;;
+
+    p)
+      portlist="$(realpath "$OPTARG")"
+
+      if [ ! -f "$portlist" ]; then
+        echo "Couldn't find port list \"$portlist\""
+        exit 1
+      fi
+      ;;
+
+    q)
+      quiet=1
+      ;;
+
+    w)
+      wordlist="$(realpath "$OPTARG")"
+
+      if [ ! -f "$wordlist" ]; then
+        echo "Couldn't find word list \"$wordlist\""
+        exit 1
+      fi
+      ;;
+
+  esac
+done
+
+shift $((OPTIND-1))
+
+if [ ! -z "$1" ]; then
+  filename="$(realpath "$1")"
+
+  if [ ! -f "$filename" ]; then
+    echo "Couldn't find file \"$filename\""
+    exit 1
+  fi
+fi
+
+nprocs=${nprocs:-20}
+output=${output:-"$PWD"}
+
+tmp="$(mktemp -d)"
+lock="$tmp"/lock
+input="$tmp"/input
+
+portlist=${portlist:-lists/ports.txt}
+portlist="$(tr '\n' , < "$portlist")"
+wordlist=${wordlist:-lists/paths.txt}
+
+touch "$input"
+
+log "$(cat banner)"
+
+if [ ! -z "$filename" ]; then
+  log "[main] Copying domains to file"
+  cp "$filename" "$input"
+fi
+
+log "[main] Starting scanner processes"
+
+for i in $(seq 1 "$nprocs"); do
+  scanner "$i" &
+done
+
+if [ -z "$filename" ]; then
+  log "[main] Reading domains from stdin"
+
+  while read -r domain; do
+    echo "$domain" >> "$input"
+  done
+fi
+
+for _ in $(seq 1 "$nprocs"); do
+  echo "done" >> "$input"
+done
+
+wait
+
+log "[main] Cleaning up"
+
+rm -rf "$tmp"
+
+log "[main] Done!"
