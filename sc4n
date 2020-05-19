@@ -1,5 +1,6 @@
 #!/bin/bash
 
+output="$PWD"
 cd "$(dirname "$0")"
 
 log () {
@@ -156,8 +157,6 @@ if [ ! -z "$1" ]; then
 fi
 
 nprocs=${nprocs:-20}
-output=${output:-"$PWD"}
-
 tmp="$(mktemp -d)"
 lock="$tmp"/lock
 input="$tmp"/input
