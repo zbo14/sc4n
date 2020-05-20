@@ -15,7 +15,7 @@ usage () {
   echo ""
   echo "OPTIONS:"
   echo "  -h  log usage information and exit"
-  echo "  -n  number of scanner processes to spawn (default: 20)"
+  echo "  -n  number of scanner processes to spawn (default: 10)"
   echo "  -o  path to output directory"
   echo "  -p  port list for nmap scans (default: ./lists/ports.txt)"
   echo "  -q  don't print banner or info"
@@ -49,7 +49,7 @@ scanner () {
       continue
     fi
 
-    ips="$(dig +short -t A "$domain")"
+    ips="$(dig -t A +short "$domain")"
 
     [[ "$ips" =~ [0-9]+ ]] || continue
 
@@ -158,7 +158,7 @@ if [ ! -z "$1" ]; then
   fi
 fi
 
-nprocs=${nprocs:-20}
+nprocs=${nprocs:-10}
 tmp="$(mktemp -d)"
 lock="$tmp"/lock
 input="$tmp"/input
