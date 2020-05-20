@@ -9,15 +9,17 @@ log () {
 
 usage () {
   cat banner
-  echo "USAGE: ./sc4n [OPTIONS] <domain/@file>"
+  echo ""
+  echo ""
+  echo "USAGE: ./sc4n [OPTIONS] [file]"
   echo ""
   echo "OPTIONS:"
   echo "  -h  log usage information and exit"
   echo "  -n  number of scanner processes to spawn (default: 20)"
   echo "  -o  path to output directory"
-  echo "  -p  port list for nmap scans (default: ./list/ports.txt)"
+  echo "  -p  port list for nmap scans (default: ./lists/ports.txt)"
   echo "  -q  don't print banner or info"
-  echo "  -w  word list for web path discovery (default: ./list/paths.txt)"
+  echo "  -w  word list for web path discovery (default: ./lists/paths.txt)"
   exit
 }
 
@@ -168,6 +170,8 @@ wordlist=${wordlist:-lists/paths.txt}
 touch "$input"
 
 log "$(cat banner)"
+log ""
+log ""
 
 if [ ! -z "$filename" ]; then
   log "[main] Copying domains to file"
