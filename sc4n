@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sc4n="$(dirname "$0")"
+
 log () {
   [ -z "$quiet" ] && echo "$1"
 }
@@ -83,7 +85,7 @@ scanner () {
 
     log "[p#$id] Scanning paths for \"$url\""
 
-    python3 dirsearch/dirsearch.py \
+    python3 "$sc4n"/dirsearch/dirsearch.py \
       -Eu "$url" \
       --plain-text-report="$subdir"/paths.txt \
       -t 20 \
@@ -155,7 +157,6 @@ if [ ! -z "$1" ]; then
   fi
 fi
 
-sc4n="$(dirname "$0")"
 nprocs=${nprocs:-10}
 tmp="$(mktemp -d)"
 lock="$tmp"/lock
