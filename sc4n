@@ -1,8 +1,5 @@
 #!/bin/bash
 
-output="$PWD"
-cd "$(dirname "$0")"
-
 log () {
   [ -z "$quiet" ] && echo "$1"
 }
@@ -158,18 +155,20 @@ if [ ! -z "$1" ]; then
   fi
 fi
 
+sc4n="$(dirname "$0")"
 nprocs=${nprocs:-10}
 tmp="$(mktemp -d)"
 lock="$tmp"/lock
 input="$tmp"/input
-
-portlist=${portlist:-lists/ports.txt}
+output=${output:-"$PWD"}
+lists="$sc4n"/lists
+portlist=${portlist:-"$lists"/ports.txt}
 portlist="$(tr '\n' , < "$portlist")"
-wordlist=${wordlist:-lists/paths.txt}
+wordlist=${wordlist:-"$lists"/paths.txt}
 
 touch "$input"
 
-log "$(cat banner)"
+log "$(cat "$sc4n"/banner)"
 log ""
 log ""
 
