@@ -1,8 +1,8 @@
 # sc4n
 
-A CLI that takes a list of domains and scans IP addresses, vhosts, and web paths in parallel.
+A CLI that takes a list of domains and scans IP addresses, ports, vhosts, and web paths in parallel.
 
-**WARNING:** don't use this tool to scan domains you aren't authorized to scan!
+**WARNING:** don't use this tool to scan hosts you aren't authorized to scan!
 
 ## Install
 
