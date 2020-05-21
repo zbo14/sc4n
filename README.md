@@ -6,9 +6,9 @@ A CLI that takes a list of domains and scans IP addresses, vhosts, and web paths
 
 ## Install
 
-Clone the repo and `cd` into it.
+Clone the repo, `cd` into it, and run `git submodule update --init`.
 
-`sc4n` requires [nmap](https://nmap.org/) so make sure that's installed as well.
+`sc4n` also requires [ffuf](https://github.com/ffuf/ffuf) and [nmap](https://nmap.org/) so make sure those are installed.
 
 ## Usage
 
@@ -32,14 +32,15 @@ OPTIONS:
   -h  log usage information and exit
   -n  number of scanner processes to spawn (default: 10)
   -o  path to output directory
-  -p  port list for nmap scans (default: ./lists/ports.txt)
+  -p  number of top ports to scan (default: 1000)
   -q  don't print banner or info
-  -w  word list for web path discovery (default: ./lists/paths.txt)
+  -w  word list for web paths (default: ./lists/paths.txt)
+  -z  word list for virtual hosts (default: ./lists/hosts.txt)
 ```
 
 `sc4n` accepts a *regular* file with 1 domain per line, otherwise it reads domains from stdin.
 
-`nmap` requires root privileges to run a [SYN scan](https://nmap.org/book/synscan.html). To avoid having to repeatedly enter your password while the script runs, you can add the following to `/etc/sudoers` (or a file in `/etc/sudoers.d/`) with `visudo`:
+`nmap` requires root privileges to run a [SYN scan](https://nmap.org/book/synscan.html). To avoid having to repeatedly enter your password, you can add the following to `/etc/sudoers` (or a file in `/etc/sudoers.d/`) with `visudo`:
 
 ```
 <user> ALL=NOPASSWD: /usr/bin/nmap

@@ -16,9 +16,10 @@ usage () {
   echo "  -h  log usage information and exit"
   echo "  -n  number of scanner processes to spawn (default: 10)"
   echo "  -o  path to output directory"
-  echo "  -p  port list for nmap scans (default: ./lists/ports.txt)"
+  echo "  -p  number of top ports to scan (default: 1000)"
   echo "  -q  don't print banner or info"
-  echo "  -w  word list for web path discovery (default: ./lists/paths.txt)"
+  echo "  -w  word list for web paths (default: ./lists/paths.txt)"
+  echo "  -z  word list for virtual hosts (default: ./lists/hosts.txt)"
   exit
 }
 
@@ -52,49 +53,59 @@ scanner () {
 
     [[ "$ips" =~ [0-9]+ ]] || continue
 
-    log "[p#$id] Resolved \"$domain\""
+    log "[p#$id] Resolved $domain"
 
     subdir="$output/$domain"
     mkdir -p "$subdir"
 
     echo "$ips" > "$subdir"/ips.txt
 
-    log "[p#$id] Scanning ports for \"$domain\""
+    log "[p#$id] Scanning ports for $domain"
 
-    nmap="$(sudo nmap \
+    ports="$(sudo nmap \
       -n \
-      -p "$portlist" \
       -Pn \
-      --script http-vhosts \
-      --script-args http-vhosts.domain="$domain" \
       -sS \
-      -sV \
+      --top-ports "$tports" \
       -iL "$subdir"/ips.txt)"
 
-    echo "$nmap" > "$subdir"/nmap.txt
+    echo "$ports" > "$subdir"/ports.txt
 
-    if [[ "$nmap" =~ 443/tcp[[:space:]]*open ]]; then
+    if [[ "$ports" =~ 443/tcp[[:space:]]*open ]]; then
       url=https://"$domain"
-    elif [[ "$nmap" =~ 80/tcp[[:space:]]*open ]]; then
+    elif [[ "$ports" =~ 80/tcp[[:space:]]*open ]]; then
       url=http://"$domain"
-    elif [[ "$nmap" =~ 8080/tcp[[:space:]]*open ]]; then
+    elif [[ "$ports" =~ 8080/tcp[[:space:]]*open ]]; then
       url=http://"$domain":8080
     fi
 
     [ -z "$url" ] && continue
 
-    log "[p#$id] Scanning paths for \"$url\""
+    log "[p#$id] Scanning virtual hosts for $url"
+
+    sed "s/%s/$domain/g" "$hostlist" | ffuf \
+      -u "$url" \
+      -H "Host: FUZZ" \
+      -mc 200,204,301,302 \
+      -o "$subdir"/vhosts.json.tmp \
+      -w - \
+      &> /dev/null
+
+    jq . "$subdir"/vhosts.json.tmp > "$subdir"/vhosts.json
+    rm "$subdir"/vhosts.json.tmp
+
+    log "[p#$id] Scanning web paths for $url"
 
     python3 "$sc4n"/dirsearch/dirsearch.py \
       -Eu "$url" \
       --plain-text-report="$subdir"/paths.txt \
       -t 20 \
-      -w "$wordlist" \
+      -w "$pathlist" \
       > /dev/null
   done
 }
 
-while getopts ":hn:o:p:qw:" opt; do
+while getopts ":hn:o:p:qw:z:" opt; do
   case ${opt} in
     h)
       usage
@@ -104,10 +115,10 @@ while getopts ":hn:o:p:qw:" opt; do
       nprocs="$OPTARG"
 
       if ! [[ "$nprocs" =~ ^[0-9]+$ ]]; then
-        echo "Expected -p to be an integer"
+        echo "Expected -n to be an integer"
         exit 1
       elif [ "$nprocs" -lt 1 ]; then
-        echo "Expected -p to be greater than/equal to 1"
+        echo "Expected -n to be greater than/equal to 1"
         exit 1
       fi
       ;;
@@ -116,16 +127,19 @@ while getopts ":hn:o:p:qw:" opt; do
       output="$(realpath "$OPTARG")"
 
       if [ ! -d "$output" ]; then
-        echo "Couldn't find output directory \"$output\""
+        echo "Couldn't find output directory $output"
         exit 1
       fi
       ;;
 
     p)
-      portlist="$(realpath "$OPTARG")"
+      tports="$(realpath "$OPTARG")"
 
-      if [ ! -f "$portlist" ]; then
-        echo "Couldn't find port list \"$portlist\""
+      if ! [[ "$tports" =~ ^[0-9]+$ ]]; then
+        echo "Expected -p to be an integer"
+        exit 1
+      elif [ "$tports" -lt 1 ]; then
+        echo "Expected -p to be greater than/equal to 1"
         exit 1
       fi
       ;;
@@ -135,10 +149,19 @@ while getopts ":hn:o:p:qw:" opt; do
       ;;
 
     w)
-      wordlist="$(realpath "$OPTARG")"
+      pathlist="$(realpath "$OPTARG")"
 
-      if [ ! -f "$wordlist" ]; then
-        echo "Couldn't find word list \"$wordlist\""
+      if [ ! -f "$pathlist" ]; then
+        echo "Couldn't find path list $pathlist"
+        exit 1
+      fi
+      ;;
+
+    z)
+      hostlist="$(realpath "$OPTARG")"
+
+      if [ ! -f "$hostlist" ]; then
+        echo "Couldn't find host list $hostlist"
         exit 1
       fi
       ;;
@@ -152,7 +175,7 @@ if [ ! -z "$1" ]; then
   filename="$(realpath "$1")"
 
   if [ ! -f "$filename" ]; then
-    echo "Couldn't find file \"$filename\""
+    echo "Couldn't find file $filename"
     exit 1
   fi
 fi
@@ -163,9 +186,9 @@ lock="$tmp"/lock
 input="$tmp"/input
 output=${output:-"$PWD"}
 lists="$sc4n"/lists
-portlist=${portlist:-"$lists"/ports.txt}
-portlist="$(tr '\n' , < "$portlist")"
-wordlist=${wordlist:-"$lists"/paths.txt}
+tports=${tports:-1000}
+pathlist=${pathlist:-"$lists"/paths.txt}
+hostlist=${hostlist:-"$lists"/hosts.txt}
 
 touch "$input"
 
