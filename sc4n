@@ -87,12 +87,10 @@ scanner () {
       -u "$url" \
       -H "Host: FUZZ" \
       -mc 200,204,301,302 \
-      -o "$subdir"/vhosts.json.tmp \
+      -o "$subdir"/vhosts.md \
+      -of md \
       -w - \
       &> /dev/null
-
-    jq . "$subdir"/vhosts.json.tmp > "$subdir"/vhosts.json
-    rm "$subdir"/vhosts.json.tmp
 
     log "[p#$id] Scanning web paths for $url"
 
