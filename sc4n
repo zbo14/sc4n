@@ -14,12 +14,12 @@ usage () {
   echo ""
   echo "OPTIONS:"
   echo "  -h  log usage information and exit"
-  echo "  -n  number of scanner processes to spawn (default: 10)"
+  echo "  -n  number of scanner processes to spawn (default: nproc)"
   echo "  -o  path to output directory"
   echo "  -p  number of top ports to scan (default: 1000)"
   echo "  -q  don't print banner or info"
-  echo "  -w  word list for web paths (default: ./lists/paths.txt)"
-  echo "  -z  word list for virtual hosts (default: ./lists/hosts.txt)"
+  echo "  -w  wordlist for web paths (default: ./lists/paths.txt)"
+  echo "  -z  wordlist for virtual hosts (default: ./lists/hosts.txt)"
   exit
 }
 
@@ -63,6 +63,7 @@ scanner () {
     log "[p#$id] Scanning ports for $domain"
 
     ports="$(sudo nmap \
+      -A \
       -n \
       -Pn \
       -sS \
@@ -83,10 +84,16 @@ scanner () {
 
     log "[p#$id] Scanning virtual hosts for $url"
 
-    sed "s/%s/$domain/g" "$hostlist" | ffuf \
+    hosts () {
+      while read -r host; do
+        echo "$host"
+        echo "$host.$1"
+      done < "$hostlist"
+    }
+
+    hosts "$domain" | ffuf \
       -u "$url" \
       -H "Host: FUZZ" \
-      -mc 200,204,301,302 \
       -o "$subdir"/vhosts.md \
       -of md \
       -w - \
@@ -100,6 +107,14 @@ scanner () {
       -t 20 \
       -w "$pathlist" \
       > /dev/null
+
+    log "[p#$id] Scanning JS files for $url"
+
+    python "$sc4n"/LinkFinder/linkfinder.py \
+      -d \
+      -i "$url" \
+      -o cli \
+      > "$subdir"/links.txt
   done
 }
 
@@ -178,7 +193,7 @@ if [ ! -z "$1" ]; then
   fi
 fi
 
-nprocs=${nprocs:-10}
+nprocs=${nprocs:-"$(nproc)"}
 tmp="$(mktemp -d)"
 lock="$tmp"/lock
 input="$tmp"/input

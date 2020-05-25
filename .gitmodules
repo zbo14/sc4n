@@ -1,3 +1,6 @@
 [submodule "dirsearch"]
 	path = dirsearch
 	url = https://github.com/maurosoria/dirsearch
+[submodule "LinkFinder"]
+	path = LinkFinder
+	url = https://github.com/GerbenJavado/LinkFinder.git
