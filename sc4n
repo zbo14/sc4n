@@ -63,10 +63,10 @@ scanner () {
     log "[p#$id] Scanning ports for $domain"
 
     ports="$(sudo nmap \
-      -A \
       -n \
       -Pn \
       -sS \
+      -sV \
       --top-ports "$tports" \
       -iL "$subdir"/ips.txt)"
 
@@ -108,13 +108,19 @@ scanner () {
       -w "$pathlist" \
       > /dev/null
 
-    log "[p#$id] Scanning JS files for $url"
+    log "[p#$id] Scanning other assets for $url"
 
-    python "$sc4n"/LinkFinder/linkfinder.py \
-      -d \
-      -i "$url" \
-      -o cli \
-      > "$subdir"/links.txt
+    hakrawler \
+      -depth 10 \
+      -js \
+      -linkfinder \
+      -plain \
+      -robots \
+      -sitemap \
+      -usewayback \
+      -wayback \
+      -url "$url" \
+      > "$subdir"/misc.txt
   done
 }
 

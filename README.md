@@ -6,9 +6,9 @@ A CLI that takes a list of domains and scans their IP addresses, ports, vhosts, 
 
 ## Install
 
-Clone the repo and run `./install`.
+Clone the repo, `cd` into it, and `git submodule update --init`.
 
-`sc4n` requires Python3, [ffuf](https://github.com/ffuf/ffuf), and [nmap](https://nmap.org/) so make sure they're installed.
+`sc4n` requires Python3, [ffuf](https://github.com/ffuf/ffuf), [hakrawler](https://github.com/hakluke/hakrawler), and [nmap](https://nmap.org/) so make sure they're installed.
 
 ## Usage
 
